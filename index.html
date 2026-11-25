@@ -1,0 +1,743 @@
+<!doctype html>
+<!--
+  Page de commande de la lampe bicolore BLE &#8212; num&#233;rotation propre &#224; la page (P1.x),
+  distincte de celle du programme de la lampe (3.x).
+    P1.0  19/11/2026  commande Bluetooth (programme 3.0)
+    P1.1  20/11/2026  carte Batterie : pourcentage et autonomie, 5 / 10 Ah
+    P1.2  20/11/2026  mode programm&#233; (programme 3.1)
+    P1.3  20/11/2026  programmation horaire (programme 3.2)
+    P1.4  20/11/2026  veille &#233;conome, voyant bleu d&#233;sactivable (programmes 3.3 et 3.4)
+    P1.5  20/11/2026  versions affich&#233;es : programme en haut, page en bas
+    P1.6  20/11/2026  fichier enti&#232;rement en caract&#232;res ASCII (accents cod&#233;s) : s'affiche
+                      correctement m&#234;me si le t&#233;l&#233;phone se trompe d'encodage
+    P1.7  20/11/2026  programme 3.5 : Bluetooth &#224; la demande (toucher un bouton de la lampe)
+    P1.8  20/11/2026  programme 3.6 (Bluetooth 1 min) ; autonomie recal&#233;e sur les mesures, autonomie en veille
+    P1.9  20/11/2026  lumi&#232;re ambiante affich&#233;e en permanence (valeur, jauge, sombre / clair) ; &#233;tat de charge sur USB
+    P1.10 20/11/2026  programme 3.7 : mode &#171; boutons seuls &#187; et t&#233;moin Bluetooth
+    P1.11 20/11/2026  programme 3.8 : batterie faible signal&#233;e par les LED de la lampe ; voyant bleu = Bluetooth
+    P1.12 20/11/2026  programme 3.9 : rappel des gestes des boutons (mode automatique aux deux boutons)
+    P1.13 20/11/2026  rep&#232;re de la lumi&#232;re actuelle sous le curseur du seuil d'obscurit&#233; (plage 0-3100 mV)
+    P1.14 20/11/2026  mode automatique visible : bouton marche/arr&#234;t orange + bouton &#171; Mode automatique &#187;
+    P1.15 20/11/2026  programme 3.10 : compte &#224; rebours avant extinction automatique, pr&#233;sence en direct
+    P1.16 20/11/2026  programme 3.11 : compteur des d&#233;clenchements du d&#233;tecteur
+    P1.17 20/11/2026  programme 3.12 : &#233;diteur de courbe d'&#233;clairage (intensit&#233; + teinte)
+    P1.18 21/11/2026  programme 3.14 : choix de la forme des rampes (perceptuelle, lin&#233;aire, g&#233;om&#233;trique)
+    P1.19 21/11/2026  petite courbe dessin&#233;e &#224; c&#244;t&#233; de chaque forme de rampe
+    P1.20 22/11/2026  programme 3.16 : gestes des boutons mis &#224; jour (deux boutons 1,5 s, confirmation par les LED)
+    P1.21 22/11/2026  programme 3.18 : mode mus&#233;e (veille faible, mont&#233;e au passage, retour en veille)
+    P1.23 25/11/2026  dernier &#233;tat connu : &#224; l'ouverture et apr&#232;s une d&#233;connexion, la page montre les r&#233;glages et l'&#233;tat relev&#233;s lors de la derni&#232;re connexion (lecture seule)
+    P1.22 24/11/2026  programme 3.20 : Bluetooth par les deux boutons 5 s, mise &#224; jour par les deux boutons 10 s ; option &#171; boutons seuls &#187; retir&#233;e
+-->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lampe bicolore</title>
+<style>
+  :root{
+    --fond:#f6f3ee; --carte:#fffdf9; --texte:#2b2722; --doux:#7a7166; --trait:#e5ddd2;
+    --accent:#b8792f; --accent-texte:#fff; --chaud:#ffb46b; --froid:#dfe9ff; --alerte:#b3401f; --ok:#3d7a4a; --auto:#e2711d; --auto-texte:#fff;
+  }
+  @media (prefers-color-scheme: dark){ :root{
+    --fond:#1c1a17; --carte:#26231f; --texte:#efe9e1; --doux:#a79d90; --trait:#3a352f;
+    --accent:#e0a253; --accent-texte:#1c1a17; --alerte:#ef8a6a; --ok:#86c493; --auto:#ff9440; --auto-texte:#1c1a17; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fond);color:var(--texte);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:520px;margin:0 auto;padding:16px}
+  h1{font-size:1.35rem;margin:8px 0 2px}
+  .sous{color:var(--doux);font-size:.9rem;margin:0 0 14px}
+  .carte{background:var(--carte);border:1px solid var(--trait);border-radius:14px;padding:16px;margin:12px 0}
+  .carte h2{font-size:1rem;margin:0 0 10px}
+  button{font:inherit;border:0;border-radius:10px;padding:12px 16px;background:var(--accent);color:var(--accent-texte);cursor:pointer;width:100%}
+  button.second{background:transparent;color:var(--texte);border:1px solid var(--trait)}
+  button:disabled{opacity:.45;cursor:default}
+  .ligne{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 0}
+  .ligne label{flex:1}
+  .val{font-variant-numeric:tabular-nums;color:var(--doux);min-width:76px;text-align:right}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  input[type=number]{width:96px;font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--trait);background:var(--fond);color:var(--texte)}
+  .teinte{height:10px;border-radius:6px;background:linear-gradient(90deg,var(--chaud),var(--froid));margin:-4px 0 6px}
+  .etat{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .etat div{background:var(--fond);border-radius:10px;padding:8px 10px}
+  .etat b{display:block;font-size:1.05rem}
+  .etat span{color:var(--doux);font-size:.8rem}
+  .alerte{color:var(--alerte)} .ok{color:var(--ok)}
+  .gros{font-size:1.15rem;padding:16px;line-height:1.25}
+  .gros small{display:block;font-size:.8rem;font-weight:400;opacity:.9}
+  button.eteinte{background:transparent;color:var(--texte);border:2px solid var(--trait)}
+  button.veilleAuto{background:transparent;color:var(--auto);border:2px solid var(--auto)}
+  button.allumeeAuto{background:var(--auto);color:var(--auto-texte)}
+  .duo{display:flex;gap:8px;margin-top:8px}
+  .duo button{padding:10px 12px;font-size:.95rem}
+  button.autoOn{background:var(--auto);color:var(--auto-texte)}
+  button.autoOff{background:transparent;color:var(--doux);border:1px solid var(--trait)}
+  .note{color:var(--doux);font-size:.85rem}
+  progress{width:100%;height:10px}
+  .cache{display:none}
+  .bandeau{background:#fff4d6;color:#5a4300;border:1px solid #e8c766;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
+  .horsLigne input,.horsLigne select,.horsLigne button,.horsLigne textarea,.horsLigne canvas{pointer-events:none;opacity:.6}
+  .horsLigne #bDeco{display:none}
+  details summary{cursor:pointer;font-weight:600}
+  .jauge{height:14px;border-radius:7px;background:var(--trait);overflow:hidden;margin:6px 0 10px}
+  .jauge i{display:block;height:100%;width:0;background:var(--ok);transition:width .4s}
+  .jauge i.bas{background:var(--alerte)}
+  .repere{position:relative;height:30px;margin:0 9px}
+  .repere .zone{position:absolute;left:0;top:3px;height:6px;border-radius:3px;background:#4a4a6a;opacity:.55}
+  .repere .trait{position:absolute;top:0;width:3px;height:13px;margin-left:-1px;border-radius:2px;background:var(--ok)}
+  .repere .trait.sombre{background:var(--alerte)}
+  .repere .txt{position:absolute;top:14px;font-size:.75rem;white-space:nowrap;color:var(--doux);transform:translateX(-50%)}
+  .etat .jauge{background:var(--trait);padding:0;border-radius:7px}
+  .pct{font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .choix{display:flex;gap:8px}
+  .choix label{white-space:nowrap;border:1px solid var(--trait);border-radius:8px;padding:4px 10px;cursor:pointer}
+  .choix input{margin-right:4px}
+  .plage{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;background:var(--fond);border-radius:10px;padding:10px;margin:8px 0}
+  .plage label{font-size:.8rem;color:var(--doux);display:block}
+  .plage input,.plage select{width:100%;font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--trait);background:var(--carte);color:var(--texte)}
+  .plage .suppr{grid-column:1/3;padding:6px;font-size:.85rem}
+  .boutons{display:flex;gap:8px}
+  .lforme{display:inline-flex;align-items:center;gap:6px}
+  .mini{flex:none;color:inherit}
+</style>
+</head>
+<body>
+<main>
+  <h1>Lampe bicolore</h1>
+  <p class="sous" id="sous">Commande par Bluetooth &#8212; page P1.23</p>
+
+  <div class="carte" id="cConnexion">
+    <button id="bConnecter">Se connecter &#224; la lampe</button>
+    <p class="note" id="msgConnexion"></p>
+    <p class="note">La lampe n'appara&#238;t pas dans la liste ? Pour &#233;conomiser sa batterie, elle coupe son Bluetooth au repos : <b>maintenez les deux boutons de la lampe 5 secondes</b> (un &#233;clair des LED et un &#233;clat bleu le confirment), puis connectez-vous dans la minute. Un &#233;clat bleu tr&#232;s bref toutes les 3 s indique que le Bluetooth est actif.</p>
+  </div>
+
+  <div id="panneau" class="cache">
+    <p class="bandeau cache" id="bandeau"></p>
+    <div class="carte">
+      <button class="gros" id="bOnOff">Allumer</button>
+      <div class="duo"><button id="bAuto" class="autoOff">Mode automatique : coup&#233;</button></div>
+      <div class="ligne" style="margin-top:14px"><label for="rNiv">Intensit&#233;</label><span class="val" id="vNiv"></span></div>
+      <input type="range" id="rNiv" min="0" max="1000" step="1">
+      <div class="ligne"><label for="rCct">Teinte</label><span class="val" id="vCct"></span></div>
+      <div class="teinte"></div>
+      <input type="range" id="rCct" min="2700" max="4000" step="10">
+    </div>
+
+    <div class="carte">
+      <h2>Batterie</h2>
+      <div class="ligne"><span class="pct" id="bPct">&#8211;</span><span class="val" id="bTension">&#8211;</span></div>
+      <div class="jauge"><i id="bJauge"></i></div>
+      <div class="ligne"><span>Autonomie au r&#233;glage m&#233;moris&#233; <span class="note" id="bNivMem"></span></span><b class="val" id="bAutMem">&#8211;</b></div>
+      <div class="ligne"><span>Autonomie au maximum <span class="note" id="bNivMax"></span></span><b class="val" id="bAutMax">&#8211;</b></div>
+      <div class="ligne"><span>Autonomie en veille <span class="note">(lampe &#233;teinte)</span></span><b class="val" id="bAutVeille">&#8211;</b></div>
+      <div class="ligne"><span>Capacit&#233; de la batterie</span>
+        <span class="choix"><label><input type="radio" name="cap" value="5">5 Ah</label><label><input type="radio" name="cap" value="10">10 Ah</label></span></div>
+      <p class="note" id="bNote">Estimation &#224; partir de la tension ; elle se pr&#233;cise quand la lampe a fonctionn&#233; quelques minutes sur batterie.</p>
+    </div>
+
+    <div class="carte">
+      <h2>&#201;tat</h2>
+      <div class="etat">
+        <div><span>Lampe</span><b id="eEtat">&#8211;</b></div>
+        <div><span>Batterie</span><b id="eBat">&#8211;</b></div>
+        <div><span>Alimentation</span><b id="eUsb">&#8211;</b></div>
+        <div><span>D&#233;tection</span><b id="eDet">&#8211;</b></div>
+        <div style="grid-column:1/3"><span>Lumi&#232;re ambiante</span><b id="eLum">&#8211;</b>
+          <div class="jauge" style="height:8px;margin:6px 0 2px"><i id="eLumJauge"></i></div>
+          <span id="eLumNote"></span></div>
+      </div>
+    </div>
+
+    <div class="carte">
+      <h2>Allumage automatique</h2>
+      <div class="ligne"><label for="cDet">D&#233;tection de pr&#233;sence</label><input type="checkbox" id="cDet"></div>
+      <div class="ligne"><label for="nDuree">Dur&#233;e d'&#233;clairage apr&#232;s le dernier mouvement</label></div>
+      <div class="ligne"><input type="range" id="rDuree" min="0" max="100" step="1"><span class="val" id="vDuree"></span></div>
+      <div class="ligne"><label for="cCapt">Capteur de luminosit&#233; mont&#233;</label><input type="checkbox" id="cCapt"></div>
+      <div id="blocSeuil">
+        <div class="ligne"><label for="rSeuil">Seuil d'obscurit&#233;</label><span class="val" id="vSeuil"></span></div>
+        <input type="range" id="rSeuil" min="0" max="3100" step="10">
+        <div class="repere"><div class="zone" id="repZone"></div><div class="trait" id="repTrait"></div><div class="txt" id="repTxt"></div></div>
+        <p class="note">Le trait sous le curseur montre la lumi&#232;re mesur&#233;e maintenant (<span id="vLum">&#8211;</span>) ; la bande sombre va de 0 au seuil. La lampe s'allume quand le trait est dans la bande sombre : placez le curseur juste au-dessus de la lumi&#232;re mesur&#233;e au moment o&#249; vous voulez l'allumage.</p>
+      </div>
+    </div>
+
+    <div class="carte">
+      <h2>Mode mus&#233;e</h2>
+      <p class="note" style="margin-top:0">La lampe reste allum&#233;e tr&#232;s faiblement. Au passage d'une personne, elle monte (rampe d'allumage) jusqu'au niveau de pr&#233;sence. Sans pr&#233;sence pendant la dur&#233;e choisie, elle redescend (rampe d'extinction) au niveau de veille. Ind&#233;pendant de la lumi&#232;re ambiante ; reprend tout seul apr&#232;s une coupure de courant.</p>
+      <div class="ligne"><label for="nMv">Niveau de veille (%)</label><input type="number" id="nMv" min="0.1" max="100" step="0.1"></div>
+      <div class="ligne"><label for="nMp">Niveau en pr&#233;sence (%)</label><input type="number" id="nMp" min="0.1" max="100" step="0.1"></div>
+      <div class="ligne"><label for="nMd">Retour en veille apr&#232;s (s sans pr&#233;sence)</label><input type="number" id="nMd" min="5" max="1800" step="5"></div>
+      <div class="ligne"><span>&#201;tat</span><b class="val" id="eMusee">&#8211;</b></div>
+      <button id="bMusee" style="width:100%;margin-top:8px">D&#233;marrer le mode mus&#233;e</button>
+      <p class="note">Arr&#234;t : ce bouton, ou un appui bref sur ON/INT. de la lampe. Consommation sur la carte v3 : la puce ne peut pas dormir pendant que les LED &#233;clairent, compter environ 20 &#224; 25 mA en veille mus&#233;e (&#224; mesurer), soit &#224; peu pr&#232;s 2 semaines et demie avec une batterie de 10 Ah. La version 4 Silicon Labs fera beaucoup mieux.</p>
+    </div>
+
+    <div class="carte">
+      <h2>Rampes</h2>
+      <div class="ligne"><label for="nRm">Dur&#233;e d'allumage (s)</label><input type="number" id="nRm" min="0.1" max="60" step="0.1"></div>
+      <div class="ligne"><label for="nRd">Dur&#233;e d'extinction (s)</label><input type="number" id="nRd" min="0.1" max="60" step="0.1"></div>
+      <div class="ligne"><label for="nBal">Glissement de teinte au bouton (s)</label><input type="number" id="nBal" min="1" max="30" step="0.5"></div>
+      <p class="note" style="margin-bottom:4px">Forme de la mont&#233;e et de la descente :</p>
+      <div class="choix" style="flex-wrap:wrap;margin:4px 0 8px" id="formes">
+        <label class="lforme"><input type="radio" name="forme" value="2"><svg class="mini" width="44" height="26" viewBox="0 0 44 26" aria-hidden="true"><path d="M2 2V24H42" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1"/><polyline points="2.0,24.0 3.0,23.9 4.0,23.9 5.0,23.8 6.0,23.8 7.0,23.7 8.0,23.6 9.0,23.5 10.0,23.3 11.0,23.2 12.0,23.0 13.0,22.8 14.0,22.6 15.0,22.4 16.0,22.1 17.0,21.8 18.0,21.5 19.0,21.2 20.0,20.8 21.0,20.4 22.0,19.9 23.0,19.5 24.0,19.0 25.0,18.4 26.0,17.8 27.0,17.2 28.0,16.5 29.0,15.8 30.0,15.0 31.0,14.2 32.0,13.4 33.0,12.5 34.0,11.5 35.0,10.5 36.0,9.5 37.0,8.4 38.0,7.2 39.0,6.0 40.0,4.7 41.0,3.4 42.0,2.0" fill="none" stroke="#e08a2c" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>Perceptuelle (conseill&#233;e)</label>
+        <label class="lforme"><input type="radio" name="forme" value="1"><svg class="mini" width="44" height="26" viewBox="0 0 44 26" aria-hidden="true"><path d="M2 2V24H42" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1"/><polyline points="2.0,24.0 3.0,23.4 4.0,22.9 5.0,22.4 6.0,21.8 7.0,21.2 8.0,20.7 9.0,20.1 10.0,19.6 11.0,19.1 12.0,18.5 13.0,17.9 14.0,17.4 15.0,16.9 16.0,16.3 17.0,15.8 18.0,15.2 19.0,14.7 20.0,14.1 21.0,13.6 22.0,13.0 23.0,12.4 24.0,11.9 25.0,11.4 26.0,10.8 27.0,10.2 28.0,9.7 29.0,9.1 30.0,8.6 31.0,8.1 32.0,7.5 33.0,6.9 34.0,6.4 35.0,5.9 36.0,5.3 37.0,4.8 38.0,4.2 39.0,3.6 40.0,3.1 41.0,2.6 42.0,2.0" fill="none" stroke="#3b78b5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>Lin&#233;aire</label>
+        <label class="lforme"><input type="radio" name="forme" value="0"><svg class="mini" width="44" height="26" viewBox="0 0 44 26" aria-hidden="true"><path d="M2 2V24H42" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1"/><polyline points="2.0,24.0 3.0,24.0 4.0,24.0 5.0,24.0 6.0,24.0 7.0,23.9 8.0,23.9 9.0,23.9 10.0,23.9 11.0,23.9 12.0,23.9 13.0,23.9 14.0,23.8 15.0,23.8 16.0,23.8 17.0,23.7 18.0,23.7 19.0,23.6 20.0,23.5 21.0,23.4 22.0,23.3 23.0,23.2 24.0,23.0 25.0,22.8 26.0,22.6 27.0,22.4 28.0,22.0 29.0,21.7 30.0,21.2 31.0,20.7 32.0,20.1 33.0,19.4 34.0,18.5 35.0,17.4 36.0,16.2 37.0,14.7 38.0,13.0 39.0,10.9 40.0,8.4 41.0,5.5 42.0,2.0" fill="none" stroke="#8a63c7" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>G&#233;om&#233;trique</label>
+      </div>
+      <p class="note" style="margin-top:0">Chaque petit dessin montre la puissance des LED (de bas en haut) au fil de la rampe (de gauche &#224; droite).</p>
+      <p class="note" id="formeNote">Perceptuelle : la clart&#233; vue par l'&#339;il monte r&#233;guli&#232;rement. Lin&#233;aire : la puissance monte r&#233;guli&#232;rement (d&#233;part rapide, fin lente). G&#233;om&#233;trique : ancienne rampe (d&#233;part lent, fin rapide). S'applique aussi au glissement d'intensit&#233; aux boutons et &#224; la courbe d'intensit&#233;. N&#233;cessite le programme 3.14.</p>
+    </div>
+
+    <div class="carte">
+      <h2>Programmation horaire</h2>
+      <div class="ligne"><label for="cProg">Programmation active</label><input type="checkbox" id="cProg"></div>
+      <p class="note" id="msgHeure"></p>
+      <div id="listePlages"></div>
+      <div class="boutons">
+        <button class="second" id="bAjoutPlage">Ajouter une plage</button>
+        <button id="bEnrPlages">Enregistrer dans la lampe</button>
+      </div>
+      <p class="note" id="msgPlages">&#171; Allum&#233;e &#187; : la lampe s'allume au d&#233;but de la plage et s'&#233;teint &#224; la fin, en rampe douce. &#171; Sur d&#233;tection &#187; : elle s'allume au passage de quelqu'un, pour la dur&#233;e r&#233;gl&#233;e dans &#171; Allumage automatique &#187;. Une plage peut passer minuit.</p>
+    </div>
+
+    <div class="carte">
+      <h2>Courbe d'&#233;clairage</h2>
+      <div class="choix" style="margin-bottom:8px">
+        <label><input type="radio" name="cbEd" value="i" checked>Intensit&#233;</label>
+        <label><input type="radio" name="cbEd" value="t">Teinte</label>
+      </div>
+      <canvas id="cbCanvas" style="width:100%;height:250px;touch-action:none;border-radius:10px;background:var(--fond);display:block"></canvas>
+      <p class="note">Touchez la zone pour ajouter un point &#224; la courbe choisie, faites-le glisser pour le d&#233;placer, touchez-le deux fois rapidement pour le supprimer (le premier et le dernier restent). Intensit&#233; en orange (&#233;chelle de l'&#339;il, 0,1 &#224; 100 %), teinte en bleu (2700 K en bas, 4000 K en haut).</p>
+      <div class="ligne"><label for="nCbd">Dur&#233;e totale (s)</label><input type="number" id="nCbd" min="10" max="3600" step="10" value="300"></div>
+      <div class="ligne"><label for="sCbf">&#192; la fin</label>
+        <select id="sCbf" style="font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--trait);background:var(--fond);color:var(--texte)">
+          <option value="0">&#233;teindre</option><option value="1">rester au dernier point</option><option value="2">recommencer en boucle</option>
+        </select></div>
+      <div class="boutons"><button class="second" id="bCbEnv">Enregistrer dans la lampe</button><button id="bCbGo">Lancer</button></div>
+      <p class="note" id="msgCb"></p>
+    </div>
+
+    <div class="carte">
+      <h2>Mode programm&#233; (essai)</h2>
+      <p class="note">La lampe s'allume et s'&#233;teint toute seule, en boucle, &#224; l'intensit&#233; et &#224; la teinte m&#233;moris&#233;es. Un appui sur un bouton de la lampe arr&#234;te le cycle.</p>
+      <div class="choix" style="flex-wrap:wrap;margin:8px 0">
+        <label><input type="radio" name="cyc" value="0">Arr&#234;t</label>
+        <label><input type="radio" name="cyc" value="1">Rampes rapides</label>
+        <label><input type="radio" name="cyc" value="2">Marche / arr&#234;t franc</label>
+      </div>
+      <div class="ligne"><label for="nCycp">Dur&#233;e allum&#233;e, puis &#233;teinte (s)</label><input type="number" id="nCycp" min="1" max="600" step="1" value="5"></div>
+      <p class="note" id="msgCyc"></p>
+    </div>
+
+    <div class="carte">
+      <details>
+        <summary>Gestes des boutons de la lampe</summary>
+        <p class="note"><b>ON / INT.</b> &#8212; bref : allumer / &#233;teindre ; maintenu : intensit&#233;.<br>
+        <b>CCT</b> &#8212; bref : petit pas de teinte ; maintenu : glissement de teinte.<br>
+        <b>Les deux maintenus 1,5 s</b> : mode automatique chang&#233; ; la lampe confirme par ses LED : 2 petits &#233;clairs = activ&#233;, 1 &#233;clair = coup&#233; (lampe allum&#233;e : bref creux de lumi&#232;re). Vous pouvez l&#226;cher.<br>
+        <b>Les deux maintenus 5 s</b> : le changement de mode est annul&#233;, 1 &#233;clair + 1 &#233;clat bleu, Bluetooth allum&#233; 1 minute (il reste allum&#233; tant que le t&#233;l&#233;phone est connect&#233;).<br>
+        <b>Les deux maintenus 10 s</b> : 2 &#233;clairs, mise &#224; jour autoris&#233;e 2 min (voyant bleu rapide).</p>
+      </details>
+    </div>
+
+    <div class="carte">
+      <details>
+        <summary>Avanc&#233;</summary>
+        <h2 style="margin-top:6px">Bluetooth</h2>
+        <div class="ligne"><label for="cTble">T&#233;moin Bluetooth : &#233;clat bleu tr&#232;s bref toutes les 3 s quand le Bluetooth est actif</label><input type="checkbox" id="cTble"></div>
+        <div class="ligne"><label for="cBleu">Voyant bleu : &#233;clat toutes les 4 s quand la d&#233;tection est active</label><input type="checkbox" id="cBleu"></div>
+        <p class="note">Coup&#233;, le voyant ne s'allume plus que pour r&#233;pondre aux boutons de la lampe.</p>
+        <div class="ligne"><label for="cTest">Mode test (intensit&#233; limit&#233;e &#224; 30 %)</label><input type="checkbox" id="cTest"></div>
+        <p class="note">Version du programme de la lampe : <span id="vVer">&#8211;</span></p>
+        <p class="note" id="vVeille"></p>
+        <h2 style="margin-top:14px">Mise &#224; jour du programme</h2>
+        <p class="note">Sur la lampe, maintenez les deux boutons 10 secondes : la lampe fait 2 &#233;clairs et le voyant bleu clignote vite. Choisissez ensuite le fichier <code>.bin</code> puis lancez la mise &#224; jour (2 &#224; 4 minutes, gardez le t&#233;l&#233;phone pr&#232;s de la lampe).</p>
+        <input type="file" id="fBin" accept=".bin">
+        <div class="ligne"><button id="bMaj" disabled>Mettre &#224; jour</button></div>
+        <progress id="pMaj" value="0" max="100" class="cache"></progress>
+        <p class="note" id="msgMaj"></p>
+        <div class="ligne" style="margin-top:14px"><button class="second" id="bDefaut">Revenir aux r&#233;glages d'usine</button></div>
+      </details>
+    </div>
+
+    <button class="second" id="bDeco">Se d&#233;connecter</button>
+  </div>
+  <p class="note" style="text-align:center;margin-top:18px">Page de commande <span id="vPage"></span> &#8212; pour programme 3.12</p>
+</main>
+<script>
+const S  = 'a1d10001-5c3e-4f6b-9a7e-6c616d706533';
+const C_ETAT = 'a1d10002-5c3e-4f6b-9a7e-6c616d706533', C_REG = 'a1d10003-5c3e-4f6b-9a7e-6c616d706533',
+      C_CMD  = 'a1d10004-5c3e-4f6b-9a7e-6c616d706533', C_OTA = 'a1d10005-5c3e-4f6b-9a7e-6c616d706533';
+const VERSION_PAGE = 'P1.23 du 25/11/2026 09:10';   // \u00e0 incr\u00e9menter \u00e0 chaque modification de la page
+const NMIN = 0.1;
+let dev, cEtat, cReg, cCmd, cOta, etat = {}, reg = {}, occupe = false, majEnCours = false;
+const $ = id => document.getElementById(id);
+$('vPage').textContent = VERSION_PAGE;
+const dec = new TextDecoder(), enc = new TextEncoder();
+
+// --- compatibilit\u00e9 ---
+if (!navigator.bluetooth) {
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  $('bConnecter').disabled = true;
+  $('msgConnexion').innerHTML = ios
+    ? "Sur iPhone et iPad, Safari ne g\u00e8re pas le Bluetooth des pages web. Installez l'application gratuite <b>Bluefy</b> (App Store) et ouvrez-y cette page."
+    : "Ce navigateur ne g\u00e8re pas le Bluetooth des pages web. Utilisez Chrome ou Edge (ordinateur ou Android).";
+}
+
+// --- \u00e9chelles ---
+const maxNiv = () => etat.max || 30;
+const curseurVersNiv = c => NMIN * Math.pow(maxNiv() / NMIN, c / 1000);           // \u00e9chelle de l'\u0153il
+const nivVersCurseur = n => Math.round(1000 * Math.log(Math.max(n, NMIN) / NMIN) / Math.log(maxNiv() / NMIN));
+const DUREES = [10,15,20,30,45,60,90,120,180,240,300,420,600,900,1200,1500,1800];
+const curseurVersDuree = c => DUREES[Math.round(c / 100 * (DUREES.length - 1))];
+const dureeVersCurseur = d => Math.round(100 * DUREES.reduce((b, v, i) => Math.abs(v - d) < Math.abs(DUREES[b] - d) ? i : b, 0) / (DUREES.length - 1));
+const texteDuree = s => s < 60 ? s + ' s' : (s % 60 ? Math.floor(s / 60) + ' min ' + s % 60 + ' s' : s / 60 + ' min');
+// --- batterie : charge restante et autonomie (estimations) ---
+// Charge restante d'une cellule lithium-ion selon sa tension, sous faible courant.
+// 0 % = 3,0 V, tension sous laquelle la lampe refuse de s'allumer.
+const COURBE = [[3.00,0],[3.30,1],[3.40,3],[3.50,6],[3.60,13],[3.65,20],[3.70,30],[3.75,40],[3.80,49],
+                [3.85,58],[3.90,66],[3.95,73],[4.00,80],[4.05,85],[4.10,90],[4.15,95],[4.20,100]];
+function pourcentBatterie(v) {
+  if (v <= COURBE[0][0]) return 0;
+  for (let i = 1; i < COURBE.length; i++) {
+    const [v1, p1] = COURBE[i - 1], [v2, p2] = COURBE[i];
+    if (v <= v2) return Math.round(p1 + (p2 - p1) * (v - v1) / (v2 - v1));
+  }
+  return 100;
+}
+// Consommation : LED 6,4 V \u00d7 150 mA au total \u00e0 100 % (les deux teintes se partagent ce total),
+// rendement des drivers \u2248 88 %, \u00e9lectronique (ESP32 + Bluetooth + capteurs) \u2248 25 mA,
+// tension moyenne de la batterie 3,7 V, 90 % de la capacit\u00e9 nominale r\u00e9ellement utilisable.
+// Mesures du 20/11 sous 4,1 V : lampe 30 % = 120 mA, 100 % = 330 mA (Bluetooth allum\u00e9, 40 mA) ;
+// rendement des drivers 88 % \u00e0 30 %, 81 % \u00e0 100 % ; veille (Bluetooth coup\u00e9) 1 \u00e0 2 mA ;
+// lampe allum\u00e9e sans Bluetooth : processeur \u00e9veill\u00e9 \u2248 25 mA.
+const LED_W = 6.4 * 0.150, ELEC_A = 0.025, VEILLE_A = 0.0015, V_MOY = 3.7, UTILE = 0.90;
+const rendement = niv => 0.908 - 0.101 * niv / 100;
+const courantBatterie = niv => LED_W * niv / 100 / (rendement(niv) * V_MOY) + ELEC_A;      // en A
+function dureeTexte(sec) {
+  sec = Math.max(0, Math.round(sec));
+  if (sec < 60) return sec + ' s';
+  if (sec < 3600) return Math.floor(sec / 60) + ' min ' + String(sec % 60).padStart(2, '0') + ' s';
+  return Math.floor(sec / 3600) + ' h ' + String(Math.floor(sec % 3600 / 60)).padStart(2, '0');
+}
+function texteAutonomie(h) {
+  if (!isFinite(h) || h <= 0) return '\u2013';
+  if (h < 1) return Math.max(1, Math.round(h * 60)) + ' min';
+  if (h < 10) { const m = Math.round(h * 60); return Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); }
+  if (h < 100) return Math.round(h) + ' h';
+  if (h < 24 * 60) return Math.round(h) + ' h (' + Math.round(h / 24) + ' jours)';
+  return '\u2248 ' + Math.round(h / 24 / 30.4) + ' mois';
+}
+const cleCapacite = () => 'capacite:' + (dev?.name || 'lampe');
+function capacite() {
+  try { const c = +localStorage.getItem(cleCapacite()); if (c === 5 || c === 10) return c; } catch (_) {}
+  const r = document.querySelector('input[name=cap]:checked'); return r ? +r.value : 10;
+}
+function afficherBatterie() {
+  const cap = capacite();
+  for (const r of document.querySelectorAll('input[name=cap]')) r.checked = +r.value === cap;
+  if (!etat.vb) return;
+  const pct = pourcentBatterie(etat.vb);
+  $('bPct').textContent = pct + ' %';
+  $('bPct').className = 'pct' + (etat.bv || etat.bf ? ' alerte' : '');
+  $('bTension').textContent = etat.vb.toFixed(2) + ' V';
+  $('bJauge').style.width = pct + '%';
+  $('bJauge').className = pct <= 15 ? 'bas' : '';
+  const ah = cap * UTILE * pct / 100;
+  const nivMem = Math.max(reg.niv || 0, NMIN), nivMax = maxNiv();
+  $('bNivMem').textContent = '(' + nivMem.toFixed(nivMem < 1 ? 2 : 1).replace('.', ',') + ' %)';
+  $('bNivMax').textContent = '(' + Math.round(nivMax) + ' %' + (reg.test ? ', mode test' : '') + ')';
+  $('bAutMem').textContent = texteAutonomie(ah / courantBatterie(nivMem));
+  $('bAutMax').textContent = texteAutonomie(ah / courantBatterie(nivMax));
+  $('bAutVeille').textContent = texteAutonomie(ah / VEILLE_A);
+  $('bNote').textContent = etat.usb
+    ? "USB branch\u00e9 : la tension monte pendant la charge, le pourcentage est surestim\u00e9. D\u00e9branchez l'USB pour une valeur fiable."
+    : "Estimation \u00e0 partir de la tension de la batterie (" + cap + " Ah). Elle se pr\u00e9cise apr\u00e8s quelques minutes de fonctionnement sur batterie.";
+}
+for (const r of document.querySelectorAll('input[name=cap]'))
+  r.addEventListener('change', e => { try { localStorage.setItem(cleCapacite(), e.target.value); } catch (_) {} afficherBatterie(); });
+
+// --- \u00e9changes avec la lampe ---
+async function envoyer(txt) {
+  if (!cCmd) return;
+  while (occupe) await new Promise(r => setTimeout(r, 20));
+  occupe = true;
+  try { await cCmd.writeValueWithResponse(enc.encode(txt)); } catch (e) { console.warn(e); }
+  occupe = false;
+}
+async function lire() {
+  if (occupe || majEnCours) return;
+  occupe = true;
+  try {
+    etat = JSON.parse(dec.decode(await cEtat.readValue()));
+    reg  = JSON.parse(dec.decode(await cReg.readValue()));
+    afficher();
+    memoriser();
+  } catch (e) { console.warn(e); }
+  occupe = false;
+}
+let lectureDemandee = false;
+function demanderLecture() { if (lectureDemandee) return; lectureDemandee = true; setTimeout(() => { lectureDemandee = false; lire(); }, 150); }
+
+// --- affichage ---
+let toucheCurseur = null;
+function afficher() {
+  $('vVer').textContent = etat.v || '\u2013';
+  $('vVeille').textContent = etat.pm === undefined ? `Veille \u00e9conome : information non transmise (il faut le programme 3.3 ou plus r\u00e9cent ; la lampe a la version ${etat.v || 'inconnue'}).` : etat.pm
+    ? `Veille \u00e9conome : Bluetooth coup\u00e9 quand la lampe est au repos. Depuis le d\u00e9marrage, la lampe a dormi ${etat.ve} % du temps.`
+    : "Veille \u00e9conome : non disponible avec ce paquet Arduino (processeur seulement ralenti \u00e0 80 MHz).";
+  const auto = !!etat.det, parDetection = etat.etat === 'auto';
+  $('bOnOff').innerHTML = etat.on
+    ? '\u00c9teindre' + (parDetection
+        ? '<small>allum\u00e9e par la d\u00e9tection' + (etat.rest >= 0 ? ' \u2014 s\u2019\u00e9teindra dans ' + dureeTexte(etat.rest) : '') + '</small>'
+        : (auto ? '<small>allum\u00e9e \u00e0 la main : ne s\u2019\u00e9teindra pas seule</small>' : ''))
+    : 'Allumer' + (auto ? '<small>mode automatique : en veille, s\u2019allumera au passage</small>' : '');
+  $('bOnOff').className = 'gros' + (etat.on ? (auto ? ' allumeeAuto' : '') : (auto ? ' veilleAuto' : ' eteinte'));
+  if (etat.mus) $('bOnOff').innerHTML = '\u00c9teindre<small>mode mus\u00e9e en cours : l\u2019arr\u00eate et \u00e9teint</small>';
+  $('bAuto').className = reg.det ? 'autoOn' : 'autoOff';
+  $('bAuto').textContent = 'Mode automatique : ' + (reg.det ? 'activ\u00e9' : (auto ? 'par la programmation horaire' : 'coup\u00e9'));
+  if (toucheCurseur !== 'niv') { $('rNiv').value = nivVersCurseur(reg.niv); }
+  $('vNiv').textContent = (reg.niv ?? 0).toFixed(reg.niv < 1 ? 2 : 1) + ' %';
+  if (toucheCurseur !== 'cct') { $('rCct').value = etat.k; }
+  $('vCct').textContent = (etat.k || '\u2013') + ' K';
+  const noms = {eteinte:'\u00e9teinte', allumee:'allum\u00e9e', auto:'allum\u00e9e (d\u00e9tection)', prog:'allum\u00e9e (programme)', veille:'en veille', maj:'mise \u00e0 jour', musee:'mode mus\u00e9e'};
+  { const mg = reg.mus !== undefined;                         // P1.21 : mode musee (programme 3.18)
+    for (const id of ['nMv','nMp','nMd','bMusee']) $(id).disabled = !mg;
+    if (mg) {
+      for (const [id, k] of [['nMv','mv'],['nMp','mp'],['nMd','md']]) if (document.activeElement !== $(id)) $(id).value = reg[k];
+      $('bMusee').textContent = etat.mus ? 'Arr\u00eater le mode mus\u00e9e' : 'D\u00e9marrer le mode mus\u00e9e';
+      $('eMusee').textContent = !etat.mus ? 'arr\u00eat\u00e9' : etat.muh
+        ? 'pr\u00e9sence (' + reg.mp + ' %)' + (etat.mur >= 0 ? ' \u2014 redescend dans ' + dureeTexte(etat.mur) : '')
+        : 'veille (' + reg.mv + ' %)';
+    } else $('eMusee').textContent = 'programme 3.18 n\u00e9cessaire';
+  }
+  $('eEtat').textContent = noms[etat.etat] || etat.etat;
+  $('eBat').innerHTML = etat.vb ? `${etat.vb.toFixed(2)} V <span>(${pourcentBatterie(etat.vb)} %)</span>` : '\u2013';
+  $('eBat').className = etat.bv ? 'alerte' : etat.bf ? 'alerte' : '';
+  $('eUsb').textContent = etat.usb ? (etat.vb >= 4.15 ? 'USB \u2014 charg\u00e9e' : 'USB \u2014 en charge') : 'batterie';
+  if (!reg.capt) {
+    $('eLum').textContent = 'capteur non d\u00e9clar\u00e9'; $('eLumJauge').style.width = '0%';
+    $('eLumNote').textContent = 'Cochez \u00ab Capteur de luminosit\u00e9 mont\u00e9 \u00bb dans \u00ab Allumage automatique \u00bb.';
+  } else {
+    $('eLum').textContent = etat.lum + ' mV \u2014 ' + (etat.nuit ? 'sombre' : 'clair');
+    $('eLumJauge').style.width = Math.min(100, etat.lum / 25) + '%';
+    $('eLumJauge').className = etat.nuit ? 'bas' : '';
+    $('eLumNote').textContent = 'Seuil : ' + reg.seuil + ' mV' + (etat.on || etat.niv > 0 ? ' \u2014 mesure fig\u00e9e pendant que la lampe \u00e9claire (elle se mesurerait elle-m\u00eame)' : ' \u2014 mesur\u00e9e toutes les 2 s');
+  }
+  $('eDet').textContent = etat.det ? (etat.nuit ? 'active, il fait sombre' : 'active, il fait jour') : 'coup\u00e9e';
+  if (etat.det && etat.dpres !== undefined)
+    $('eDet').textContent += etat.pir ? ' \u2014 pr\u00e9sence en ce moment' : (etat.dpres < 999999 ? ' \u2014 derni\u00e8re pr\u00e9sence il y a ' + dureeTexte(etat.dpres) : '');
+  if (etat.npir !== undefined) $('eDet').textContent += ' (' + etat.npir + ' d\u00e9clenchement' + (etat.npir > 1 ? 's' : '') + ' depuis le d\u00e9marrage)';
+  $('cTble').disabled = reg.tble === undefined; $('cTble').checked = reg.tble === undefined || !!reg.tble;
+  $('cBleu').disabled = reg.bleu === undefined; $('cBleu').checked = !!reg.bleu;
+  $('cDet').checked = !!reg.det; $('cCapt').checked = !!reg.capt; $('cTest').checked = !!reg.test;
+  $('blocSeuil').style.display = reg.capt ? '' : 'none';
+  if (toucheCurseur !== 'seuil') $('rSeuil').value = reg.seuil;
+  $('vSeuil').textContent = reg.seuil + ' mV'; $('vLum').textContent = etat.lum + ' mV';
+  dessinerRepere(toucheCurseur === 'seuil' ? +$('rSeuil').value : reg.seuil);
+  if (toucheCurseur !== 'duree') $('rDuree').value = dureeVersCurseur(reg.duree);
+  $('vDuree').textContent = texteDuree(reg.duree);
+  for (const [id, k] of [['nRm','rm'],['nRd','rd'],['nBal','bal']]) if (document.activeElement !== $(id)) $(id).value = (reg[k] / 1000).toString();
+  { const fg = reg.forme !== undefined;                       // P1.18 : forme des rampes (programme 3.14)
+    for (const r of document.querySelectorAll('input[name=forme]')) { r.disabled = !fg; r.checked = fg && +r.value === reg.forme; } }
+  afficherCycle();
+  afficherCourbe();
+  afficherProgramme();
+  afficherBatterie();
+  $('sous').textContent = (dev?.name || 'Lampe') + (etat.v ? ' \u2014 programme ' + etat.v : '') + ' \u2014 page ' + VERSION_PAGE.split(' ')[0] + (etat.bv ? ' \u2014 batterie vide' : etat.bf ? ' \u2014 batterie faible' : '');
+}
+
+// --- programmation horaire ---
+const hm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+const versMin = t => { const [h, m] = (t || '00:00').split(':').map(Number); return h * 60 + m; };
+let plages = [], plagesModifiees = false, dernierTxtPlages = null;
+function lirePlagesLampe(txt) {
+  return (txt || '').split(',').filter(Boolean).map(e => { const [d, f, m, n] = e.split('-').map(Number); return {d, f, m, n}; });
+}
+function dessinerPlages() {
+  const L = $('listePlages'); L.innerHTML = '';
+  plages.forEach((p, i) => {
+    const div = document.createElement('div'); div.className = 'plage';
+    div.innerHTML = `<div><label>D\u00e9but</label><input type="time" value="${hm(p.d)}" data-k="d"></div>
+      <div><label>Fin</label><input type="time" value="${hm(p.f)}" data-k="f"></div>
+      <div><label>Fonctionnement</label><select data-k="m"><option value="1"${p.m == 1 ? ' selected' : ''}>Allum\u00e9e</option><option value="2"${p.m == 2 ? ' selected' : ''}>Sur d\u00e9tection</option></select></div>
+      <div><label>Intensit\u00e9 (%)</label><input type="number" min="0.1" max="100" step="0.1" value="${p.n}" data-k="n"></div>
+      <button class="second suppr">Supprimer cette plage</button>`;
+    div.querySelectorAll('[data-k]').forEach(el => el.addEventListener('change', () => {
+      const k = el.dataset.k; p[k] = k === 'd' || k === 'f' ? versMin(el.value) : +el.value; plagesModifiees = true; majMsgPlages();
+    }));
+    div.querySelector('.suppr').onclick = () => { plages.splice(i, 1); plagesModifiees = true; dessinerPlages(); majMsgPlages(); };
+    L.appendChild(div);
+  });
+  $('bAjoutPlage').disabled = plages.length >= 4;
+}
+function majMsgPlages() { $('bEnrPlages').textContent = plagesModifiees ? 'Enregistrer dans la lampe *' : 'Enregistrer dans la lampe'; }
+function afficherProgramme() {
+  const gere = reg.plages !== undefined;
+  for (const id of ['cProg', 'bAjoutPlage', 'bEnrPlages']) $(id).disabled = !gere;
+  if (!gere) { $('msgHeure').textContent = 'N\u00e9cessite la version 3.2 du programme de la lampe.'; return; }
+  $('cProg').checked = !!reg.prog;
+  if (!plagesModifiees && reg.plages !== dernierTxtPlages && !$('listePlages').contains(document.activeElement)) {
+    dernierTxtPlages = reg.plages; plages = lirePlagesLampe(reg.plages); dessinerPlages();
+  }
+  $('bAjoutPlage').disabled = plages.length >= 4;
+  const enCours = etat.pl >= 0 && plages[etat.pl] && !plagesModifiees ? ` \u2014 plage en cours : ${hm(plages[etat.pl].d)}\u2013${hm(plages[etat.pl].f)}` : '';
+  $('msgHeure').textContent = etat.h >= 0 ? `Heure de la lampe : ${hm(etat.h)}${enCours}` : "Heure de la lampe inconnue : elle sera donn\u00e9e par le t\u00e9l\u00e9phone.";
+}
+$('bAjoutPlage').onclick = () => {
+  if (plages.length >= 4) return;
+  plages.push(plages.length ? {d: plages[plages.length - 1].f, f: (plages[plages.length - 1].f + 120) % 1440, m: 2, n: 10} : {d: 19 * 60, f: 23 * 60, m: 1, n: 30});
+  plagesModifiees = true; dessinerPlages(); majMsgPlages();
+};
+$('bEnrPlages').onclick = async () => {
+  if (plages.some(p => p.d === p.f)) { alert('Une plage a la m\u00eame heure de d\u00e9but et de fin.'); return; }
+  const txt = plages.map(p => `${p.d}-${p.f}-${p.m}-${Math.min(100, Math.max(0.1, p.n || 0.1)).toFixed(1)}`).join(',');
+  await envoyerHeure();
+  await envoyer('plages=' + txt);
+  plagesModifiees = false; majMsgPlages(); demanderLecture();
+};
+$('cProg').onchange = async e => { await envoyerHeure(); envoyer('prog=' + (e.target.checked ? 1 : 0)); };
+function envoyerHeure() {
+  const d = new Date();
+  return envoyer('heure=' + (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()));
+}
+
+// --- courbe d'\u00e9clairage : intensit\u00e9 et teinte en fonction du temps ---
+let cb = { d: 300, f: 1, i: [[0, 1], [60, 30], [240, 30], [300, 1]], t: [[0, 0], [150, 1], [300, 0]] };
+let cbModifie = false, cbDernier = null, cbEdit = 'i', cbDrag = -1, cbDernierTap = { i: -1, t: 0 };
+const CB_MAX = 16, CB_G = 36, CB_D = 46, CB_H = 10, CB_B = 24;
+const cbLire = txt => (txt || '').split(',').filter(Boolean).map(e => e.split('/').map(Number));
+function cbGeom() {
+  const c = $('cbCanvas'), W = c.clientWidth, H = c.clientHeight;
+  return { c, W, H, x: tt => CB_G + (W - CB_G - CB_D) * tt / cb.d, t: px => (px - CB_G) / (W - CB_G - CB_D) * cb.d,
+    yI: v => CB_H + (H - CB_H - CB_B) * (1 - Math.log10(Math.max(0.1, v) / 0.1) / 3),
+    vI: py => 0.1 * Math.pow(10, 3 * (1 - (py - CB_H) / (H - CB_H - CB_B))),
+    yT: v => CB_H + (H - CB_H - CB_B) * (1 - v), vT: py => 1 - (py - CB_H) / (H - CB_H - CB_B) };
+}
+function cbArrondiI(v) { v = Math.min(100, Math.max(0.1, v)); return v < 1 ? Math.round(v * 10) / 10 : v < 10 ? Math.round(v * 10) / 10 : Math.round(v); }
+function cbDessiner() {
+  const g = cbGeom(), c = g.c, dpr = window.devicePixelRatio || 1;
+  if (c.width !== Math.round(g.W * dpr) || c.height !== Math.round(g.H * dpr)) { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); }
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, g.W, g.H);
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  const coulI = col('--auto') || '#e2711d', coulT = '#4f86e8';
+  ctx.font = '11px system-ui, sans-serif'; ctx.lineWidth = 1;
+  // grille
+  ctx.strokeStyle = col('--trait'); ctx.fillStyle = col('--doux');
+  for (const v of [0.1, 1, 10, 100]) { const y = g.yI(v); ctx.beginPath(); ctx.moveTo(CB_G, y); ctx.lineTo(g.W - CB_D, y); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillText((v < 1 ? '0,1' : v) + ' %', CB_G - 4, y + 4); }
+  ctx.textAlign = 'left'; ctx.fillText('4000K', g.W - CB_D + 3, g.yT(1) + 4); ctx.fillText('2700K', g.W - CB_D + 3, g.yT(0) + 4);
+  const pas = cb.d <= 120 ? 15 : cb.d <= 600 ? 60 : cb.d <= 1800 ? 300 : 600;
+  ctx.textAlign = 'center';
+  for (let s = 0; s <= cb.d + 0.1; s += pas) { const x = g.x(s); ctx.beginPath(); ctx.moveTo(x, CB_H); ctx.lineTo(x, g.H - CB_B); ctx.stroke();
+    ctx.fillText(s % 60 ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : (s / 60) + ' min', x, g.H - 8); }
+  // plafond (mode test)
+  if (etat.max && etat.max < 100) { ctx.setLineDash([4, 4]); ctx.strokeStyle = col('--alerte'); const y = g.yI(etat.max);
+    ctx.beginPath(); ctx.moveTo(CB_G, y); ctx.lineTo(g.W - CB_D, y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = col('--alerte'); ctx.textAlign = 'left'; ctx.fillText('plafond ' + etat.max + ' %', CB_G + 4, y - 3); }
+  // courbes (la courbe en cours d'\u00e9dition par-dessus)
+  for (const k of cbEdit === 'i' ? ['t', 'i'] : ['i', 't']) {
+    const pts = cb[k], y = k === 'i' ? g.yI : g.yT, actif = k === cbEdit;
+    ctx.strokeStyle = k === 'i' ? coulI : coulT; ctx.globalAlpha = actif ? 1 : 0.45; ctx.lineWidth = actif ? 2.5 : 1.5;
+    ctx.beginPath(); pts.forEach(([tt, v], n) => n ? ctx.lineTo(g.x(tt), y(v)) : ctx.moveTo(g.x(tt), y(v))); ctx.stroke();
+    if (actif) { ctx.fillStyle = ctx.strokeStyle; for (const [tt, v] of pts) { ctx.beginPath(); ctx.arc(g.x(tt), y(v), 5, 0, 7); ctx.fill(); } }
+    ctx.globalAlpha = 1;
+  }
+  // position de lecture
+  if (etat.cb) { const x = g.x(Math.min(cb.d, etat.cbe || 0)); ctx.strokeStyle = col('--texte'); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x, CB_H); ctx.lineTo(x, g.H - CB_B); ctx.stroke(); }
+}
+function cbPos(e) { const r = $('cbCanvas').getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+function cbVers(px, py, n) {               // coordonn\u00e9es \u00e9cran -> point (temps arrondi \u00e0 la seconde)
+  const g = cbGeom(), pts = cb[cbEdit], dernier = pts.length - 1;
+  let tt = Math.round(g.t(px));
+  if (n === 0) tt = 0; else if (n === dernier) tt = cb.d;
+  else tt = Math.min(pts[n + 1][0] - 1, Math.max(pts[n - 1][0] + 1, tt));
+  const v = cbEdit === 'i' ? cbArrondiI(g.vI(py)) : Math.round(Math.min(1, Math.max(0, g.vT(py))) * 100) / 100;
+  pts[n] = [tt, v];
+}
+$('cbCanvas').addEventListener('pointerdown', e => {
+  const [px, py] = cbPos(e), g = cbGeom(), pts = cb[cbEdit], y = cbEdit === 'i' ? g.yI : g.yT;
+  let n = -1, best = 18 * 18;
+  pts.forEach(([tt, v], k) => { const d2 = (g.x(tt) - px) ** 2 + (y(v) - py) ** 2; if (d2 < best) { best = d2; n = k; } });
+  const maintenant = Date.now();
+  if (n >= 0 && cbDernierTap.i === n && maintenant - cbDernierTap.t < 350 && n > 0 && n < pts.length - 1) {
+    pts.splice(n, 1); cbDernierTap = { i: -1, t: 0 }; cbModifie = true; cbMaj(); return;     // double touche : suppression
+  }
+  cbDernierTap = { i: n, t: maintenant };
+  if (n < 0) {                                  // ajout d'un point
+    const tt = Math.round(g.t(px)); if (tt <= 0 || tt >= cb.d || pts.length >= CB_MAX || pts.some(p => p[0] === tt)) return;
+    n = pts.findIndex(p => p[0] > tt); pts.splice(n, 0, [tt, 0]); cbVers(px, py, n); cbDernierTap = { i: n, t: maintenant };
+  }
+  cbDrag = n; $('cbCanvas').setPointerCapture(e.pointerId); cbModifie = true; cbMaj();
+});
+$('cbCanvas').addEventListener('pointermove', e => { if (cbDrag < 0) return; const [px, py] = cbPos(e); cbVers(px, py, cbDrag); cbMaj(); });
+$('cbCanvas').addEventListener('pointerup', () => { cbDrag = -1; });
+for (const r of document.querySelectorAll('input[name=cbEd]')) r.addEventListener('change', e => { cbEdit = e.target.value; cbDessiner(); });
+$('nCbd').onchange = e => {
+  const d = Math.min(3600, Math.max(10, Math.round(+e.target.value / 10) * 10)), k = d / cb.d;
+  for (const c of ['i', 't']) { cb[c] = cb[c].map(([tt, v]) => [Math.round(tt * k), v]); cb[c][cb[c].length - 1][0] = d; }
+  cb.d = d; e.target.value = d; cbModifie = true; cbMaj();
+};
+$('sCbf').onchange = e => { cb.f = +e.target.value; cbModifie = true; cbMaj(); };
+async function cbEnvoyer() {
+  await envoyer('cbd=' + cb.d + ';cbf=' + cb.f);
+  await envoyer('cbi=' + cb.i.map(([tt, v]) => tt + '/' + v.toFixed(1)).join(','));
+  await envoyer('cbt=' + cb.t.map(([tt, v]) => tt + '/' + v.toFixed(2)).join(','));
+  cbModifie = false; cbDernier = null; cbMaj(); demanderLecture();
+}
+$('bCbEnv').onclick = cbEnvoyer;
+$('bCbGo').onclick = async () => { if (etat.cb) { envoyer('courbe=0'); return; } if (cbModifie) await cbEnvoyer(); envoyer('courbe=1'); };
+function cbMaj() {
+  $('bCbEnv').textContent = cbModifie ? 'Enregistrer dans la lampe *' : 'Enregistrer dans la lampe';
+  cbDessiner();
+}
+function afficherCourbe() {
+  const gere = reg.cbi !== undefined;
+  for (const id of ['bCbEnv', 'bCbGo', 'nCbd', 'sCbf']) $(id).disabled = !gere;
+  if (!gere) { $('msgCb').textContent = 'N\u00e9cessite le programme 3.12 de la lampe.'; cbDessiner(); return; }
+  const cle = reg.cbi + '|' + reg.cbt + '|' + reg.cbd + '|' + reg.cbf;
+  if (!cbModifie && cbDrag < 0 && cle !== cbDernier) {
+    cbDernier = cle; cb = { d: reg.cbd, f: reg.cbf, i: cbLire(reg.cbi), t: cbLire(reg.cbt) };
+    $('nCbd').value = cb.d; $('sCbf').value = cb.f;
+  }
+  $('bCbGo').textContent = etat.cb ? 'Arr\u00eater' : 'Lancer';
+  $('msgCb').textContent = etat.cb ? 'En cours : ' + dureeTexte(etat.cbe || 0) + ' sur ' + dureeTexte(cb.d) + (cb.f === 2 ? ' (en boucle)' : '') + '. Un appui sur un bouton de la lampe l\u2019arr\u00eate aussi.'
+    : (cbModifie ? 'Modifications non enregistr\u00e9es dans la lampe.' : 'Courbe enregistr\u00e9e dans la lampe.');
+  cbDessiner();
+}
+window.addEventListener('resize', cbDessiner);
+
+// --- mode programm\u00e9 ---
+function afficherCycle() {
+  const gere = etat.cyc !== undefined;
+  for (const r of document.querySelectorAll('input[name=cyc]')) { r.disabled = !gere; r.checked = gere && +r.value === etat.cyc; }
+  $('nCycp').disabled = !gere;
+  if (!gere) { $('msgCyc').textContent = 'N\u00e9cessite la version 3.1 du programme de la lampe.'; return; }
+  if (document.activeElement !== $('nCycp')) $('nCycp').value = Math.round(etat.cycp / 1000);
+  $('msgCyc').textContent = etat.cyc ? `En cours : ${etat.ncyc} allumage${etat.ncyc > 1 ? 's' : ''} depuis le d\u00e9part.` : 'Arr\u00eat\u00e9.';
+}
+for (const r of document.querySelectorAll('input[name=cyc]'))
+  r.addEventListener('change', e => envoyer('cycp=' + Math.round(+$('nCycp').value * 1000) + ';cyc=' + e.target.value));
+$('nCycp').onchange = e => envoyer('cycp=' + Math.round(Math.min(600, Math.max(1, +e.target.value)) * 1000));
+
+// --- commandes (envoi limit\u00e9 pendant le glissement d'un curseur) ---
+function limiteur(fn, ms) { let t = 0, att = null; return v => { const n = Date.now(); clearTimeout(att);
+  if (n - t > ms) { t = n; fn(v); } else att = setTimeout(() => { t = Date.now(); fn(v); }, ms); }; }
+const envNiv = limiteur(v => envoyer('niv=' + v.toFixed(3)), 120);
+const envCct = limiteur(v => envoyer('k=' + v), 120);
+$('rNiv').addEventListener('input', e => { toucheCurseur = 'niv'; const n = curseurVersNiv(+e.target.value); reg.niv = n; $('vNiv').textContent = n.toFixed(n < 1 ? 2 : 1) + ' %'; envNiv(n); });
+$('rCct').addEventListener('input', e => { toucheCurseur = 'cct'; $('vCct').textContent = e.target.value + ' K'; envCct(+e.target.value); });
+$('rDuree').addEventListener('input', e => { toucheCurseur = 'duree'; $('vDuree').textContent = texteDuree(curseurVersDuree(+e.target.value)); });
+$('rDuree').addEventListener('change', e => { envoyer('duree=' + curseurVersDuree(+e.target.value)); toucheCurseur = null; });
+$('rSeuil').addEventListener('input', e => { toucheCurseur = 'seuil'; $('vSeuil').textContent = e.target.value + ' mV'; dessinerRepere(+e.target.value); });
+function dessinerRepere(seuil) {           // lumi\u00e8re actuelle et zone \u00ab sombre \u00bb sur la m\u00eame \u00e9chelle que le curseur
+  const max = +$('rSeuil').max, pc = v => Math.max(0, Math.min(100, v / max * 100));
+  const lum = etat.lum || 0;
+  $('repZone').style.width = pc(seuil) + '%';
+  $('repTrait').style.left = pc(lum) + '%';
+  $('repTrait').className = 'trait' + (lum < seuil ? ' sombre' : '');
+  $('repTxt').style.left = Math.max(12, Math.min(88, pc(lum))) + '%';
+  $('repTxt').textContent = 'maintenant ' + lum + ' mV' + (lum < seuil ? ' (sombre)' : ' (clair)') + (etat.on || etat.niv > 0 ? ' \u2014 mesure fig\u00e9e' : '');
+}
+$('rSeuil').addEventListener('change', e => { envoyer('seuil=' + e.target.value); toucheCurseur = null; });
+for (const id of ['rNiv', 'rCct']) $(id).addEventListener('change', () => setTimeout(() => toucheCurseur = null, 600));
+$('bOnOff').onclick = () => envoyer('on=' + (etat.on ? 0 : 1));
+$('bAuto').onclick = () => envoyer('det=' + (reg.det ? 0 : 1));
+$('cDet').onchange  = e => envoyer('det='  + (e.target.checked ? 1 : 0));
+$('cBleu').onchange = e => envoyer('bleu=' + (e.target.checked ? 1 : 0));
+$('cTble').onchange = e => envoyer('tble=' + (e.target.checked ? 1 : 0));
+$('cCapt').onchange = e => envoyer('capt=' + (e.target.checked ? 1 : 0));
+$('cTest').onchange = e => { if (!e.target.checked && !confirm("Lever le mode test : l'intensit\u00e9 pourra monter \u00e0 100 %. Continuer ?")) { e.target.checked = true; return; } envoyer('test=' + (e.target.checked ? 1 : 0)); };
+for (const [id, k] of [['nRm','rm'],['nRd','rd'],['nBal','bal']]) $(id).onchange = e => envoyer(k + '=' + Math.round(+e.target.value * 1000));
+for (const r of document.querySelectorAll('input[name=forme]')) r.addEventListener('change', e => envoyer('forme=' + e.target.value));
+$('nMv').onchange = e => envoyer('mv=' + Math.min(100, Math.max(0.1, +e.target.value)));
+$('nMp').onchange = e => envoyer('mp=' + Math.min(100, Math.max(0.1, +e.target.value)));
+$('nMd').onchange = e => envoyer('md=' + Math.round(Math.min(1800, Math.max(5, +e.target.value))));
+$('bMusee').onclick = () => envoyer('musee=' + (etat.mus ? 0 : 1));
+$('bDefaut').onclick = () => { if (confirm('Revenir aux r\u00e9glages d\'usine ?')) envoyer('defaut=1'); };
+
+// --- dernier \u00e9tat connu (P1.23) : enregistr\u00e9 dans ce navigateur \u00e0 chaque lecture ---
+function memoriser() {
+  try {
+    const nom = dev?.name || 'Lampe';
+    localStorage.setItem('dernier:' + nom, JSON.stringify({ nom, quand: Date.now(), etat, reg }));
+    localStorage.setItem('derniereLampe', nom);
+  } catch (_) {}
+}
+function montrerDernier() {
+  let d = null;
+  try { const nom = localStorage.getItem('derniereLampe'); if (nom) d = JSON.parse(localStorage.getItem('dernier:' + nom)); } catch (_) {}
+  if (!d || !d.reg || !d.etat) return false;
+  etat = d.etat; reg = d.reg;
+  try { afficher(); } catch (e) { console.warn(e); }
+  const q = new Date(d.quand);
+  $('bandeau').innerHTML = '<b>' + d.nom + ' n\u2019est pas connect\u00e9e.</b> Voici son dernier \u00e9tat connu, relev\u00e9 le ' +
+    q.toLocaleDateString('fr-FR') + ' \u00e0 ' + q.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}) +
+    ' (lecture seule ; batterie et lumi\u00e8re ambiante ont pu changer depuis). Pour modifier : maintenez les deux boutons de la lampe 5 s, puis \u00ab Se connecter \u00bb.';
+  $('bandeau').classList.remove('cache');
+  $('panneau').classList.add('horsLigne'); $('panneau').classList.remove('cache');
+  return true;
+}
+function quitterHorsLigne() { $('bandeau').classList.add('cache'); $('panneau').classList.remove('horsLigne'); }
+
+// --- connexion ---
+$('bConnecter').onclick = async () => {
+  try {
+    $('msgConnexion').textContent = 'Recherche\u2026';
+    dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [S] }, { namePrefix: 'Lampe-' }], optionalServices: [S] });
+    dev.addEventListener('gattserverdisconnected', deconnecte);
+    const srv = await dev.gatt.connect();
+    const svc = await srv.getPrimaryService(S);
+    [cEtat, cReg, cCmd, cOta] = await Promise.all([C_ETAT, C_REG, C_CMD, C_OTA].map(u => svc.getCharacteristic(u)));
+    await cEtat.startNotifications();
+    cEtat.addEventListener('characteristicvaluechanged', demanderLecture);   // relecture compl\u00e8te
+    await lire();
+    await envoyerHeure();                          // la lampe n'a pas d'horloge : le t\u00e9l\u00e9phone lui donne l'heure
+    quitterHorsLigne();
+    $('cConnexion').classList.add('cache'); $('panneau').classList.remove('cache');
+  } catch (e) { $('msgConnexion').textContent = 'Connexion impossible : ' + e.message; }
+};
+function deconnecte() {
+  $('panneau').classList.add('cache'); $('cConnexion').classList.remove('cache');
+  $('msgConnexion').textContent = 'Lampe d\u00e9connect\u00e9e.'; $('sous').textContent = 'Commande par Bluetooth \u2014 page ' + VERSION_PAGE.split(' ')[0];
+  cCmd = null; plagesModifiees = false; dernierTxtPlages = null;
+  montrerDernier();
+}
+montrerDernier();                                   // \u00e0 l'ouverture de la page
+setInterval(() => { if (cCmd && !majEnCours) envoyerHeure(); }, 600000);   // recalage toutes les 10 min
+$('bDeco').onclick = () => dev?.gatt?.disconnect();
+
+// --- mise \u00e0 jour du programme ---
+$('fBin').onchange = () => { $('bMaj').disabled = !$('fBin').files.length; };
+$('bMaj').onclick = async () => {
+  const f = $('fBin').files[0]; if (!f) return;
+  const data = new Uint8Array(await f.arrayBuffer());
+  if (data[0] !== 0xE9) { $('msgMaj').textContent = "Ce fichier n'est pas un programme ESP32 (.bin)."; return; }
+  await lire();
+  if (!etat.ota) { $('msgMaj').textContent = "Mise \u00e0 jour non autoris\u00e9e : maintenez d'abord les deux boutons de la lampe 10 secondes."; return; }
+  majEnCours = true; $('bMaj').disabled = true; $('pMaj').classList.remove('cache');
+  try {
+    await cCmd.writeValueWithResponse(enc.encode('ota=debut,' + data.length));
+    const BLOC = 180; const t0 = Date.now();
+    for (let i = 0; i < data.length; i += BLOC) {
+      await cOta.writeValueWithResponse(data.slice(i, i + BLOC));
+      if ((i / BLOC) % 20 === 0) {
+        const p = Math.round(100 * (i + BLOC) / data.length); $('pMaj').value = p;
+        const reste = Math.round((Date.now() - t0) / (i + BLOC) * (data.length - i - BLOC) / 1000);
+        $('msgMaj').textContent = `Envoi : ${p} % \u2014 encore environ ${reste} s`;
+      }
+    }
+    $('msgMaj').textContent = 'V\u00e9rification et red\u00e9marrage de la lampe\u2026';
+    await cCmd.writeValueWithResponse(enc.encode('ota=fin'));
+    $('pMaj').value = 100;
+    $('msgMaj').textContent = 'Termin\u00e9. La lampe red\u00e9marre ; reconnectez-vous dans quelques secondes.';
+  } catch (e) {
+    $('msgMaj').textContent = 'Mise \u00e0 jour interrompue : ' + e.message + '. La lampe garde son ancien programme.';
+    try { await cCmd.writeValueWithResponse(enc.encode('ota=annule')); } catch (_) {}
+  }
+  majEnCours = false; $('bMaj').disabled = false;
+};
+</script>
+</body>
+</html>
