@@ -25,6 +25,7 @@
     P1.19 21/11/2026  petite courbe dessin&#233;e &#224; c&#244;t&#233; de chaque forme de rampe
     P1.20 22/11/2026  programme 3.16 : gestes des boutons mis &#224; jour (deux boutons 1,5 s, confirmation par les LED)
     P1.21 22/11/2026  programme 3.18 : mode mus&#233;e (veille faible, mont&#233;e au passage, retour en veille)
+    P1.24 25/11/2026  page en ligne (https://antoinek78.github.io/Aklumen/) : icone AKLumen, ouverture en plein ecran depuis l'ecran d'accueil, fonctionne sans internet (copie gardee dans le telephone)
     P1.23 25/11/2026  dernier &#233;tat connu : &#224; l'ouverture et apr&#232;s une d&#233;connexion, la page montre les r&#233;glages et l'&#233;tat relev&#233;s lors de la derni&#232;re connexion (lecture seule)
     P1.22 24/11/2026  programme 3.20 : Bluetooth par les deux boutons 5 s, mise &#224; jour par les deux boutons 10 s ; option &#171; boutons seuls &#187; retir&#233;e
 -->
@@ -32,7 +33,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lampe bicolore</title>
+<title>AKLumen</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-192.png">
+<meta name="theme-color" content="#0f1c3a">
 <style>
   :root{
     --fond:#f6f3ee; --carte:#fffdf9; --texte:#2b2722; --doux:#7a7166; --trait:#e5ddd2;
@@ -103,7 +108,7 @@
 <body>
 <main>
   <h1>Lampe bicolore</h1>
-  <p class="sous" id="sous">Commande par Bluetooth &#8212; page P1.23</p>
+  <p class="sous" id="sous">Commande par Bluetooth &#8212; page P1.24</p>
 
   <div class="carte" id="cConnexion">
     <button id="bConnecter">Se connecter &#224; la lampe</button>
@@ -262,13 +267,13 @@
 
     <button class="second" id="bDeco">Se d&#233;connecter</button>
   </div>
-  <p class="note" style="text-align:center;margin-top:18px">Page de commande <span id="vPage"></span> &#8212; pour programme 3.12</p>
+  <p class="note" style="text-align:center;margin-top:18px">Page de commande <span id="vPage"></span> &#8212; pour programme 3.20</p>
 </main>
 <script>
 const S  = 'a1d10001-5c3e-4f6b-9a7e-6c616d706533';
 const C_ETAT = 'a1d10002-5c3e-4f6b-9a7e-6c616d706533', C_REG = 'a1d10003-5c3e-4f6b-9a7e-6c616d706533',
       C_CMD  = 'a1d10004-5c3e-4f6b-9a7e-6c616d706533', C_OTA = 'a1d10005-5c3e-4f6b-9a7e-6c616d706533';
-const VERSION_PAGE = 'P1.23 du 25/11/2026 09:10';   // \u00e0 incr\u00e9menter \u00e0 chaque modification de la page
+const VERSION_PAGE = 'P1.24 du 25/11/2026 09:45';   // \u00e0 incr\u00e9menter \u00e0 chaque modification de la page
 const NMIN = 0.1;
 let dev, cEtat, cReg, cCmd, cOta, etat = {}, reg = {}, occupe = false, majEnCours = false;
 const $ = id => document.getElementById(id);
@@ -705,6 +710,8 @@ function deconnecte() {
   montrerDernier();
 }
 montrerDernier();                                   // \u00e0 l'ouverture de la page
+// P1.24 : copie gard\u00e9e dans le t\u00e9l\u00e9phone (page en ligne seulement, pas en fichier local)
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(e => console.warn(e));
 setInterval(() => { if (cCmd && !majEnCours) envoyerHeure(); }, 600000);   // recalage toutes les 10 min
 $('bDeco').onclick = () => dev?.gatt?.disconnect();
 

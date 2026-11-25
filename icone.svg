@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#0f1c3a"/>
+<g transform="translate(96,150) scale(0.9)"><polygon points="198,132 380,40 380,224" fill="#333438" stroke="#8a6a2a" stroke-width="3"/>
+<path fill="#f6f3ea" fill-rule="evenodd" d="M72 0 L146 236 L120 236 L102 178 L42 178 L24 236 L-2 236 Z M72 66 L95 152 L49 152 Z"/>
+<rect x="180" y="34" width="20" height="198" fill="#f6f3ea"/><path d="M198 132 L302 32 M198 132 L311 232" stroke="#f6f3ea" stroke-width="6" stroke-linecap="round" fill="none"/>
+<circle cx="198" cy="132" r="13" fill="#e8a830"/></g></svg>
